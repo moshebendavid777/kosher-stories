@@ -1,9 +1,16 @@
 <?php
 /**
  * Plugin Name: Kosher Stories (Builder Enabled + Shapes)
+ * Version: 1.9.0
  */
 
 if (!defined('ABSPATH')) exit;
+
+function kosher_stories_menu_icon() {
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 720 720"><path fill="#9ca2a7" d="M645.1,527.16c.11,0,.23,0,.34,0,4.97-.08,9.52-2.85,11.88-7.23,26.29-48.64,40.25-103.33,40.25-160.17,0-32.67-4.61-64.63-13.52-95.14-2.78-9.53-14.33-13.25-22.03-6.99-.09.07-.17.14-.26.21-4.35,3.56-6.15,9.35-4.57,14.74,8.16,27.96,12.39,57.24,12.39,87.17,0,52.13-12.81,102.29-36.93,146.9-5.07,9.38,1.8,20.68,12.45,20.5Z"/><path fill="#9ca2a7" d="M617.11,539.36c-3.52.56-6.67,2.5-8.8,5.35-8.9,11.9-18.7,23.25-29.4,33.95-58.47,58.47-136.21,90.67-218.91,90.67s-160.44-32.2-218.91-90.67c-58.47-58.47-90.67-136.21-90.67-218.91s32.2-160.43,90.67-218.91c50.91-50.91,116.43-81.88,187.11-89.04,7.09-.72,12.5-6.66,12.5-13.78v-.28c0-8.17-7.03-14.62-15.16-13.8-77.15,7.77-148.68,41.54-204.25,97.11-63.76,63.76-98.88,148.53-98.88,238.71s35.11,174.95,98.88,238.71c63.76,63.76,148.53,98.88,238.71,98.88s174.94-35.11,238.71-98.88c11.7-11.7,22.42-24.11,32.14-37.13,7.42-9.94-.81-23.98-13.07-22.08-.22.03-.45.07-.67.1Z"/><path fill="#9ca2a7" d="M578.91,140.85c28.12,28.12,50.15,60.69,65.45,96.13,3.49,8.08,13.46,10.96,20.68,5.92.08-.06.16-.11.25-.17,5.41-3.77,7.4-10.83,4.79-16.88-16.69-38.63-40.71-74.14-71.36-104.8-59.44-59.44-137.14-93.96-220.46-98.37-8.08-.43-14.84,6.06-14.66,14.15,0,.09,0,.19,0,.28.17,7.28,5.94,13.14,13.21,13.53,76.37,4.06,147.6,35.71,202.1,90.21Z"/><path fill="#9ca2a7" d="M357.48,385.71c-43.73-13.14-75.55-29.29-95.47-48.45-19.92-19.16-29.87-42.8-29.87-70.94,0-31.83,12.17-58.17,36.51-78.99,24.34-20.82,55.99-31.24,94.93-31.24,26.56,0,50.23,5.37,71.04,16.1,20.8,10.74,36.91,25.54,48.33,44.42,5.9,9.76,10.28,19.99,13.13,30.69,4.2,15.77-7.74,31.23-24.05,31.23h-.68c-11.76,0-22.07-8.2-24.34-19.73-3.03-15.37-9.86-28.07-20.49-38.08-14.87-14.02-35.85-21.04-62.94-21.04-25.14,0-44.75,5.8-58.82,17.39-14.07,11.59-21.11,27.67-21.11,48.25,0,16.51,6.68,30.46,20.05,41.86,13.36,11.41,36.12,21.83,68.25,31.29s57.27,19.88,75.42,31.26c18.15,11.38,31.6,24.67,40.36,39.84,8.76,15.18,13.14,33.04,13.14,53.59,0,32.76-12.21,59-36.65,78.71-24.43,19.71-57.09,29.57-97.99,29.57-26.55,0-51.34-5.32-74.35-15.96-23.02-10.64-40.76-25.22-53.24-43.73-6.58-9.76-11.43-20.22-14.54-31.37-4.43-15.89,7.44-31.65,23.94-31.65h.92c11.74,0,21.7,8.24,24.33,19.69,3.52,15.36,11.45,28.09,23.78,38.21,17.26,14.16,40.32,21.24,69.18,21.24,26.91,0,47.53-5.74,61.87-17.21,14.34-11.47,21.51-27.11,21.51-46.92s-6.64-35.12-19.92-45.95c-13.28-10.83-37.36-21.52-72.23-32.07Z"/></svg>';
+
+    return 'data:image/svg+xml;base64,' . base64_encode($svg);
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -15,7 +22,7 @@ add_action('init', function () {
     register_post_type('stories', [
         'label' => 'Stories',
         'public' => true,
-        'menu_icon' => 'dashicons-format-video',
+        'menu_icon' => kosher_stories_menu_icon(),
         'supports' => ['title'],
         'show_in_rest' => true,
     ]);
@@ -35,31 +42,25 @@ add_action('init', function () {
 | SHORTCODE (FRONTEND BAR)
 |--------------------------------------------------------------------------
 */
-add_shortcode('kosher_stories', function () {
+add_shortcode('kosher_stories', function ($atts = []) {
+    $atts = shortcode_atts([
+        'header' => '',
+    ], $atts, 'kosher_stories');
 
-    $terms = get_terms([
-        'taxonomy' => 'story_category',
-        'hide_empty' => true,
-    ]);
+    $carousel = kosher_build_all_stories_carousel_payload();
 
-    if (empty($terms) || is_wp_error($terms)) {
+    if (!$carousel) {
         return '<p>No stories found</p>';
     }
 
     ob_start();
     ?>
 
-    <div class="kosher-stories-bar">
-        <div class="container d-flex justify-content-between">
-        <?php foreach ($terms as $term): ?>
-            <?php if (!kayco_story_term_has_visible_stories((int) $term->term_id)) continue; ?>
-
-<div class="kosher-story-thumb" data-term="<?php echo esc_attr($term->term_id); ?>">
-    <div class="thumb-inner"></div>
-</div>
-
-        <?php endforeach; ?>
-        </div>
+    <div class="kosher-stories-inline<?php echo $atts['header'] !== '' ? ' has-header' : ''; ?>" data-kosher-stories-inline>
+        <?php if ($atts['header'] !== '') : ?>
+            <h2 class="kosher-stories-inline__header"><?php echo esc_html($atts['header']); ?></h2>
+        <?php endif; ?>
+        <?php echo $carousel['html']; ?>
     </div>
 
     <div id="kosher-stories-viewer" class="kosher-stories-viewer hidden">
@@ -1614,26 +1615,12 @@ function kosher_render_story($data, $post_id = null) {
 */
 add_action('wp_ajax_kosher_get_category_stories', 'kosher_get_category_stories');
 add_action('wp_ajax_nopriv_kosher_get_category_stories', 'kosher_get_category_stories');
+add_action('wp_ajax_kosher_get_all_stories_carousel', 'kosher_get_all_stories_carousel');
+add_action('wp_ajax_nopriv_kosher_get_all_stories_carousel', 'kosher_get_all_stories_carousel');
 
-function kosher_get_category_stories() {
-
-    $term_id = intval($_POST['term_id']);
-
-    $stories = get_posts([
-    'post_type'      => 'stories',
-    'post_status'    => 'publish',
-    'posts_per_page' => -1,
-    'orderby'        => 'date',
-    'order'          => 'ASC',
-    'meta_query'     => kayco_get_visible_story_meta_query(),
-    'tax_query'      => [[
-        'taxonomy' => 'story_category',
-        'terms'    => $term_id
-    ]]
-    ]);
-
+function kosher_build_stories_deck_payload($stories) {
     if (empty($stories)) {
-        wp_send_json_error();
+        return null;
     }
 
     $slides = '';
@@ -1668,7 +1655,7 @@ function kosher_get_category_stories() {
 
             $slides .= "
                 <div class='slide video' data-post-id='{$story->ID}' data-timeout='{$slide_timeout}' data-has-poll='" . ($has_poll ? 'true' : 'false') . "'>
-                    <video src='{$video}'  autoplay playsinline></video>
+                    <video src='{$video}' playsinline preload='metadata'></video>
                     <div class='overlay'>{$content}</div>
                 </div>
             ";
@@ -1719,11 +1706,130 @@ function kosher_get_category_stories() {
         </div>
     ";
 
-    // 🔥 RETURN post_ids for frontend logic
-    wp_send_json_success([
+    return [
         'html' => $html,
         'post_ids' => $post_ids
+    ];
+}
+
+function kosher_build_category_stories_payload($term_id) {
+    $stories = get_posts([
+    'post_type'      => 'stories',
+    'post_status'    => 'publish',
+    'posts_per_page' => -1,
+    'orderby'        => 'date',
+    'order'          => 'ASC',
+    'meta_query'     => kayco_get_visible_story_meta_query(),
+    'tax_query'      => [[
+        'taxonomy' => 'story_category',
+        'terms'    => $term_id
+    ]]
     ]);
+
+    return kosher_build_stories_deck_payload($stories);
+}
+
+function kosher_get_category_stories() {
+
+    $term_id = intval($_POST['term_id']);
+    $payload = kosher_build_category_stories_payload($term_id);
+
+    if (!$payload) {
+        wp_send_json_error();
+    }
+
+    // 🔥 RETURN post_ids for frontend logic
+    wp_send_json_success($payload);
+}
+
+function kosher_get_primary_story_term_id($post_id) {
+    $terms = wp_get_post_terms($post_id, 'story_category', [
+        'fields' => 'ids',
+    ]);
+
+    if (is_wp_error($terms) || empty($terms)) {
+        return 0;
+    }
+
+    return (int) $terms[0];
+}
+
+function kosher_build_all_stories_carousel_payload($start_post_id = 0) {
+    $stories = get_posts([
+        'post_type'      => 'stories',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'orderby'        => 'date',
+        'order'          => 'ASC',
+        'meta_query'     => kayco_get_visible_story_meta_query(),
+    ]);
+
+    $cards = [];
+    $start_index = 0;
+
+    foreach ($stories as $story) {
+        $payload = kosher_build_stories_deck_payload([$story]);
+
+        if (!$payload) {
+            continue;
+        }
+
+        if ($start_post_id && (int) $story->ID === $start_post_id) {
+            $start_index = count($cards);
+        }
+
+        $cards[] = [
+            'term_id' => kosher_get_primary_story_term_id((int) $story->ID),
+            'post_id' => (int) $story->ID,
+            'title' => get_the_title($story) ?: 'Story',
+            'html' => $payload['html'],
+            'post_ids' => $payload['post_ids'],
+        ];
+    }
+
+    if (empty($cards)) {
+        return null;
+    }
+
+    ob_start();
+    ?>
+    <div class="kosher-reels">
+        <div class="kosher-reels__viewport">
+            <div class="kosher-reels__track">
+                <?php foreach ($cards as $index => $card) : ?>
+                    <article class="kosher-reel-card" data-index="<?php echo esc_attr($index); ?>" data-term="<?php echo esc_attr($card['term_id']); ?>" data-post="<?php echo esc_attr($card['post_id']); ?>" data-post-ids="<?php echo esc_attr(wp_json_encode($card['post_ids'])); ?>">
+                        <?php echo $card['html']; ?>
+                        <span class="kosher-reel-card__title"><?php echo esc_html($card['title']); ?></span>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+            <button type="button" class="kosher-reels__nav kosher-reels__nav--prev" aria-label="Previous story"></button>
+            <button type="button" class="kosher-reels__nav kosher-reels__nav--next" aria-label="Next story"></button>
+        </div>
+    </div>
+    <?php
+
+    return [
+        'html' => ob_get_clean(),
+        'cards' => array_map(function ($card) {
+            return [
+                'term_id' => $card['term_id'],
+                'post_id' => $card['post_id'],
+                'post_ids' => $card['post_ids'],
+            ];
+        }, $cards),
+        'start_index' => $start_index,
+    ];
+}
+
+function kosher_get_all_stories_carousel() {
+    $payload = kosher_build_all_stories_carousel_payload(intval($_POST['start_post_id'] ?? 0));
+
+    if (!$payload) {
+        wp_send_json_error();
+    }
+
+    wp_send_json_success($payload);
 }
 
 function kosher_stories_create_table() {

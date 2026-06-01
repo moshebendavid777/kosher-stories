@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const console = createDebugConsole(window.console);
 
-    console.log('🟢 [INIT] DOM Loaded');
 
     const viewer = document.getElementById('kosher-stories-viewer');
     const content = document.querySelector('.kosher-stories-content');
@@ -169,7 +168,6 @@ function stopAllStoryMedia() {
         }
     });
 
-    console.log('🛑 All story media stopped');
 }
 
 function playActiveVideo(activeSlide) {
@@ -712,7 +710,6 @@ function refreshStoriesState() {
 
     // 🚫 DO NOT OVERRIDE while viewer is open
     if (!viewer.classList.contains('hidden')) {
-        console.log('⏸️ Skipping refresh (viewer open)');
         return;
     }
 
@@ -759,7 +756,6 @@ function refreshStoriesState() {
     // =========================
 function updateThumbFromSlides(termId) {
 
-    console.log('🔥 updateThumbFromSlides CALLED for term:', termId);
 
     // ⏳ Ensure DOM is ready (important after AJAX render)
     requestAnimationFrame(() => {
@@ -778,7 +774,6 @@ function updateThumbFromSlides(termId) {
             return;
         }
 
-        console.log('🧪 Slide HTML:', firstSlide.innerHTML);
 
         let imgSrc = null;
 
@@ -788,7 +783,6 @@ function updateThumbFromSlides(termId) {
         const img = firstSlide.querySelector('img');
 
         if (img && img.src) {
-            console.log('🖼️ Thumb from IMG');
             imgSrc = img.src;
         }
 
@@ -804,7 +798,6 @@ function updateThumbFromSlides(termId) {
                 const poster = video.getAttribute('poster');
 
                 if (poster) {
-                    console.log('🎬 Thumb from VIDEO poster');
                     imgSrc = poster;
                 } else {
                     console.warn('⚠️ Video has NO poster');
@@ -820,7 +813,6 @@ function updateThumbFromSlides(termId) {
             const bgImg = firstSlide.querySelector('.story-background--image img');
 
             if (bgImg && bgImg.src) {
-                console.log('🖼️ Thumb from BACKGROUND image');
                 imgSrc = bgImg.src;
             }
         }
@@ -881,11 +873,9 @@ function updateThumbFromSlides(termId) {
         // =========================
         function applyThumb(src) {
 
-            console.log('🎯 Applying thumb:', src);
 
             const wrappers = document.querySelectorAll('.kosher-story-thumb');
 
-            console.log('🔍 Available thumbs:', wrappers.length);
 
             let found = false;
 
@@ -893,7 +883,6 @@ function updateThumbFromSlides(termId) {
 
                 const dataTerm = wrapper.getAttribute('data-term');
 
-                console.log('➡️ Checking thumb term:', dataTerm);
 
                 if (String(dataTerm) === String(termId)) {
 
@@ -906,7 +895,6 @@ function updateThumbFromSlides(termId) {
 
                     inner.innerHTML = `<img src="${src}" alt="">`;
 
-                    console.log('✅ THUMB APPLIED SUCCESS');
 
                     found = true;
                 }
@@ -919,6 +907,303 @@ function updateThumbFromSlides(termId) {
 
     });
 }
+
+    function parsePostIds(value) {
+        try {
+            const ids = JSON.parse(value || '[]');
+            return Array.isArray(ids) ? ids : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function stopStoryWrapper(wrapper, resetSlides = false) {
+        if (!wrapper) {
+            return;
+        }
+
+        if (wrapper._timer) {
+            clearTimeout(wrapper._timer);
+            wrapper._timer = null;
+        }
+
+        wrapper.querySelectorAll('video').forEach(video => {
+            video.onloadedmetadata = null;
+            video.onloadeddata = null;
+
+            video.pause();
+            video.currentTime = 0;
+        });
+
+        if (!resetSlides) {
+            return;
+        }
+
+        wrapper.querySelectorAll('.slide').forEach((slide, index) => {
+            slide.style.display = index === 0 ? 'block' : 'none';
+        });
+
+        wrapper.querySelectorAll('.bar').forEach((bar) => {
+            const span = bar.querySelector('span');
+            bar.classList.remove('seen');
+
+            if (span) {
+                span.style.animation = 'none';
+                span.style.transform = 'scaleX(0)';
+            }
+        });
+    }
+
+    function loadStoriesCarousel(startIndex = 0) {
+        const startThumb = categories[startIndex];
+        const startTermId = startThumb ? startThumb.getAttribute('data-term') : '';
+
+        fetch(kosherStories.ajax_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                action: 'kosher_get_all_stories_carousel',
+                start_term_id: startTermId
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                loadCategory(startIndex);
+                return;
+            }
+
+            storyBody.innerHTML = data.data.html;
+            viewer.classList.add('is-reels-carousel');
+            viewer.classList.remove('hidden');
+            initReelsCarousel(storyBody, data.data.start_index || 0);
+        })
+        .catch(() => loadCategory(startIndex));
+    }
+
+    function initReelsCarousel(scope, initialIndex = 0, options = {}) {
+        const track = scope.querySelector('.kosher-reels__track');
+        const shell = scope.querySelector('.kosher-reels') || scope;
+        const originalCards = Array.from(scope.querySelectorAll('.kosher-reel-card:not([data-reel-clone])'));
+        const prev = scope.querySelector('.kosher-reels__nav--prev');
+        const next = scope.querySelector('.kosher-reels__nav--next');
+
+        if (!track || !originalCards.length) {
+            return;
+        }
+
+        if (originalCards.length > 1 && track.dataset.reelsLoopReady !== 'true') {
+            originalCards.forEach((card) => {
+                const clone = card.cloneNode(true);
+                clone.dataset.reelClone = 'after';
+                track.appendChild(clone);
+            });
+
+            originalCards.slice().reverse().forEach((card) => {
+                const clone = card.cloneNode(true);
+                clone.dataset.reelClone = 'before';
+                track.insertBefore(clone, track.firstChild);
+            });
+
+            track.dataset.reelsLoopReady = 'true';
+        }
+
+        const cards = Array.from(scope.querySelectorAll('.kosher-reel-card'));
+        const originalCount = originalCards.length;
+        const middleOffset = originalCount > 1 ? originalCount : 0;
+
+        let activeIndex = Math.max(0, Math.min(originalCount - 1, initialIndex));
+        let activeVisualIndex = middleOffset + activeIndex;
+        let activeStarted = false;
+        let wheelLocked = false;
+        let touchStartX = null;
+        let touchStartY = null;
+
+        function syncButtons() {
+            if (prev) {
+                prev.disabled = originalCount <= 1;
+            }
+
+            if (next) {
+                next.disabled = originalCount <= 1;
+            }
+        }
+
+        function normalizeIndex(index) {
+            if (!originalCount) {
+                return 0;
+            }
+
+            return (index % originalCount + originalCount) % originalCount;
+        }
+
+        function centerActiveCard(animate = true) {
+            const activeCard = cards[activeVisualIndex];
+            const offset = activeCard.offsetLeft + (activeCard.offsetWidth / 2);
+            track.style.transition = animate ? '' : 'none';
+            track.style.transform = `translateX(calc(50% - ${offset}px))`;
+
+            if (!animate) {
+                void track.offsetWidth;
+                track.style.transition = '';
+            }
+        }
+
+        function activateCard(index, initialSlideIndex = null, shouldStart = false, allowMutedFallback = false) {
+            activeIndex = normalizeIndex(index);
+            activeVisualIndex = middleOffset + activeIndex;
+            activeStarted = shouldStart;
+            shell.classList.toggle('is-playing', activeStarted);
+
+            cards.forEach((card, cardIndex) => {
+                const dailyStories = card.querySelector('.daily-stories');
+                const isActive = cardIndex === activeVisualIndex;
+
+                card.classList.toggle('is-active', isActive);
+                card.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+                stopStoryWrapper(dailyStories, true);
+            });
+
+            centerActiveCard();
+            syncButtons();
+
+            if (!shouldStart) {
+                return;
+            }
+
+            startActiveCard(initialSlideIndex, allowMutedFallback);
+        }
+
+        function startActiveCard(initialSlideIndex = null, allowMutedFallback = false) {
+            const activeCard = cards[activeVisualIndex];
+            const dailyStories = activeCard.querySelector('.daily-stories');
+            const termId = activeCard.getAttribute('data-term');
+            const postIds = parsePostIds(activeCard.getAttribute('data-post-ids'));
+
+
+            currentCategoryIndex = categories.findIndex(category => category.getAttribute('data-term') === termId);
+            currentTermId = termId;
+
+            if (postIds.length) {
+                checkSeenState(termId, postIds);
+            }
+
+            initStoryEngine(dailyStories, postIds, termId, initialSlideIndex, {
+                carousel: true,
+                allowMutedFallback,
+                onComplete: function () {
+                    markCategorySeen(termId, postIds);
+                    // moveCarousel(1, null, true);
+                },
+                onPreviousCategory: function () {
+                    moveCarousel(-1, 'last', true);
+                }
+            });
+
+            activeStarted = true;
+            shell.classList.add('is-playing');
+        }
+
+        function moveCarousel(direction, initialSlideIndex = null, allowMutedFallback = false) {
+
+
+            if (originalCount <= 1) {
+                startActiveCard(null, allowMutedFallback);
+                return;
+            }
+
+            activateCard(activeIndex + direction, initialSlideIndex, true, allowMutedFallback);
+
+        }
+
+        cards.forEach((card, index) => {
+            card.addEventListener('click', function (event) {
+                if (
+                    event.target.closest('.prev-slide') ||
+                    event.target.closest('.next-slide') ||
+                    event.target.closest('.story-poll') ||
+                    event.target.closest('.overlay a')
+                ) {
+                    return;
+                }
+
+                if (index === activeVisualIndex) {
+                    if (!activeStarted) {
+                        startActiveCard();
+                    }
+                    return;
+                }
+
+                activateCard(normalizeIndex(index - middleOffset), null, true);
+            });
+        });
+
+        if (prev) {
+            prev.addEventListener('click', function () {
+
+                moveCarousel(-1, 'last');
+            });
+        }
+
+        if (next) {
+            next.addEventListener('click', function () {
+
+                moveCarousel(1);
+            });
+        }
+
+        scope.addEventListener('wheel', function (event) {
+            if (wheelLocked || Math.abs(event.deltaX) + Math.abs(event.deltaY) < 24) {
+                return;
+            }
+
+            event.preventDefault();
+            wheelLocked = true;
+            moveCarousel(event.deltaX + event.deltaY > 0 ? 1 : -1, null, true);
+            setTimeout(() => {
+                wheelLocked = false;
+            }, 420);
+        }, { passive: false });
+
+        scope.addEventListener('touchstart', function (event) {
+            if (event.touches.length !== 1) {
+                touchStartX = null;
+                touchStartY = null;
+                return;
+            }
+
+            touchStartX = event.touches[0].clientX;
+            touchStartY = event.touches[0].clientY;
+        }, { passive: true });
+
+        scope.addEventListener('touchend', function (event) {
+            if (touchStartX === null || touchStartY === null) {
+                return;
+            }
+
+            const touch = event.changedTouches[0];
+            const deltaX = touch.clientX - touchStartX;
+            const deltaY = touch.clientY - touchStartY;
+
+            touchStartX = null;
+            touchStartY = null;
+
+            if (Math.abs(deltaX) < 36 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+                return;
+            }
+
+            moveCarousel(deltaX < 0 ? 1 : -1, null, true);
+        }, { passive: true });
+
+        if (scope._reelsResizeHandler) {
+            window.removeEventListener('resize', scope._reelsResizeHandler);
+        }
+
+        scope._reelsResizeHandler = centerActiveCard;
+        window.addEventListener('resize', scope._reelsResizeHandler, { passive: true });
+        activateCard(activeIndex, null, options.autoplay === true);
+    }
+
     // =========================
     // LOAD CATEGORY
     // =========================
@@ -933,6 +1218,7 @@ function updateThumbFromSlides(termId) {
         currentCategoryIndex = index;
         const termId = categories[index].getAttribute('data-term');
         currentTermId = termId;
+        viewer.classList.remove('is-reels-carousel');
 
         fetch(kosherStories.ajax_url, {
             method: 'POST',
@@ -955,7 +1241,6 @@ function updateThumbFromSlides(termId) {
 
     // 🔥 FIXED TIMING
 setTimeout(() => {
-    console.log('🎯 Setting thumb from slides (viewer open)');
     updateThumbFromSlides(termId);
 }, 50);
 
@@ -969,13 +1254,22 @@ setTimeout(() => {
     }
 
     categories.forEach((el, i) => {
-        el.addEventListener('click', () => loadCategory(i));
+        el.addEventListener('click', () => loadStoriesCarousel(i));
+    });
+
+    document.querySelectorAll('[data-kosher-stories-inline]').forEach((inlineCarousel) => {
+        initReelsCarousel(inlineCarousel, 0, { autoplay: false });
     });
 
     function closeViewer() {
         queueDropoffFromState();
         stopAllStoryMedia();
+        if (storyBody._reelsResizeHandler) {
+            window.removeEventListener('resize', storyBody._reelsResizeHandler);
+            storyBody._reelsResizeHandler = null;
+        }
         viewer.classList.add('hidden');
+        viewer.classList.remove('is-reels-carousel');
         storyBody.innerHTML = '';
         refreshStoriesState();
     }
@@ -993,7 +1287,7 @@ setTimeout(() => {
     // =========================
     // 🎬 STORY ENGINE
     // =========================
-    window.initStoryEngine = function(wrapper, postIds, termId, initialSlideIndex = null) {
+    window.initStoryEngine = function(wrapper, postIds, termId, initialSlideIndex = null, options = {}) {
 
         if (wrapper._timer) {
             clearTimeout(wrapper._timer);
@@ -1026,6 +1320,7 @@ setTimeout(() => {
             activeDuration: 0,
             completed: false
         };
+        storyBody._kaycoStoryState = wrapper._kaycoStoryState;
 
 function moveTo(index) {
 
@@ -1037,26 +1332,20 @@ function moveTo(index) {
         // 🎯 HIDE/SHOW
         slide.style.display = i === index ? 'block' : 'none';
 
-        // 🔴 STOP + RESET EVERYTHING
-        if (video) {
+        // Stop inactive slides only. The active slide is controlled by the play path.
+        if (video && i !== index) {
+
             video.pause();
             video.currentTime = 0;
         }
 
-        if (bgVideo) {
+        if (bgVideo && i !== index) {
+
             bgVideo.pause();
             bgVideo.currentTime = 0;
         }
 
-        // 🟢 PLAY ONLY ACTIVE
-        if (i === index) {
-
-            if (bgVideo) {
-                bgVideo.play().catch(() => {});
-            } else if (video) {
-                video.play().catch(() => {});
-            }
-        }
+        // Playback starts after the focused slide is visible.
     });
 }
 
@@ -1086,6 +1375,82 @@ function moveTo(index) {
             return slide ? Array.from(slide.querySelectorAll('video')) : [];
         }
 
+        function keepCarouselVideoPlaying(video) {
+            if (!options.carousel || !video) {
+                return;
+            }
+
+            const expectedPostId = postIds[current];
+
+            [250, 800, 1500].forEach((delay) => {
+                setTimeout(() => {
+                    const stillActive = wrapper._kaycoStoryState &&
+                        wrapper._kaycoStoryState.current === current &&
+                        postIds[current] === expectedPostId;
+
+                    if (!stillActive || video.ended || !video.paused) {
+                        return;
+                    }
+
+
+                    video.play().catch((error) => {
+
+                    });
+                }, delay);
+            });
+        }
+
+        function playStoryVideo(video) {
+            if (!video) {
+
+                return Promise.reject(new Error('No video element'));
+            }
+
+            if (!video.paused && !video.ended) {
+
+                return Promise.resolve(true);
+            }
+
+            if (options.allowMutedFallback) {
+                video.muted = true;
+            }
+
+
+            const playPromise = video.play();
+
+            if (playPromise !== undefined) {
+                return playPromise.then(() => {
+
+                    setTimeout(() => {
+
+                    }, 800);
+                    keepCarouselVideoPlaying(video);
+                    return true;
+                }).catch((error) => {
+
+                    if (options.allowMutedFallback) {
+                        video.muted = true;
+                        video.play().then(() => {
+
+                        }).catch((retryError) => {
+
+                            clearStoryTimer();
+                            isPaused = true;
+                            setProgressAnimationState('paused');
+                            throw retryError;
+                        });
+                    }
+
+                    clearStoryTimer();
+                    isPaused = true;
+                    setProgressAnimationState('paused');
+                    throw error;
+                });
+            }
+
+            return Promise.resolve(true);
+        }
+
         function setProgressAnimationState(state) {
             const progressBar = getActiveProgressBar();
 
@@ -1103,12 +1468,15 @@ function moveTo(index) {
         }
 
         function pauseActiveMedia() {
-            getActiveVideos().forEach(video => video.pause());
+            getActiveVideos().forEach(video => {
+
+                video.pause();
+            });
         }
 
         function resumeActiveMedia() {
             getActiveVideos().forEach(video => {
-                video.play().catch(() => {});
+                playStoryVideo(video);
             });
         }
 
@@ -1212,10 +1580,11 @@ function moveTo(index) {
             });
         }
 
-        function resetVideos() {
-            slides.forEach(s => {
+        function resetVideos(targetIndex = current) {
+            slides.forEach((s, index) => {
                 const v = s.querySelector('video');
-                if (v) {
+                if (v && index !== targetIndex) {
+
                     v.pause();
                     v.currentTime = 0;
                 }
@@ -1248,6 +1617,11 @@ function moveTo(index) {
                     flushStoryEvents();
                 }
 
+                if (options.carousel && typeof options.onComplete === 'function') {
+                    options.onComplete();
+                    return;
+                }
+
                 loadCategory(currentCategoryIndex + 1);
                 return;
             }
@@ -1262,7 +1636,7 @@ function moveTo(index) {
             activeDuration = 0;
             slideStartedAt = 0;
 
-            resetVideos();
+            resetVideos(i);
 
             const slide = slides[current];
             const video = slide.querySelector('video');
@@ -1274,29 +1648,23 @@ function moveTo(index) {
             initStoryPollCards(slide);
             setPollSlideMode(hasPoll);
 
-            console.log('🧪 -----------------------------');
-            console.log(`📍 Slide Index: ${current}`);
-            console.log(`📦 dataset.timeout:`, slide.dataset.timeout);
 
             // =========================
             // 🎬 BACKGROUND VIDEO
             // =========================
 if (bgVideo) {
-    console.log('🔥 USING BACKGROUND VIDEO');
 
-    bgVideo.muted = hasPoll ? true : bgVideo.hasAttribute('muted');
+    bgVideo.muted = hasPoll || options.allowMutedFallback ? true : bgVideo.hasAttribute('muted');
     bgVideo.currentTime = 0;
 
     const startVideo = () => {
-        console.log('▶️ Playing BG video');
-        bgVideo.play().catch(() => {});
+        return playStoryVideo(bgVideo);
     };
 
     const handleDuration = () => {
 
         let videoDuration = bgVideo.duration;
 
-        console.log('🎬 BG duration RAW:', videoDuration);
 
         if (
             !videoDuration ||
@@ -1310,9 +1678,7 @@ if (bgVideo) {
 
         const ms = videoDuration * 1000;
 
-        console.log(`🎬 FINAL BG Duration: ${videoDuration}s (${ms}ms)`);
 
-        moveTo(current);
         if (!hasPoll) {
             setBars(current, ms);
         }
@@ -1338,21 +1704,23 @@ if (bgVideo) {
     };
 
     if (bgVideo.readyState >= 1) {
-        console.log('⚡ BG already loaded');
-        startVideo();
-        handleDuration();
-        if (isPaused) {
-            pauseStoryPlayback();
-        }
-    } else {
-        console.log('⏳ Waiting BG metadata...');
-        bgVideo.onloadedmetadata = () => {
-            console.log('✅ BG metadata ready');
-            startVideo();
+        moveTo(current);
+        startVideo().then(() => {
             handleDuration();
             if (isPaused) {
                 pauseStoryPlayback();
             }
+        }).catch(() => {});
+    } else {
+        moveTo(current);
+        const bgPlayPromise = startVideo();
+        bgVideo.onloadedmetadata = () => {
+            bgPlayPromise.then(() => {
+                handleDuration();
+                if (isPaused) {
+                    pauseStoryPlayback();
+                }
+            }).catch(() => {});
         };
     }
 
@@ -1364,21 +1732,18 @@ if (bgVideo) {
             // =========================
 if (video) {
 
-    console.log('🎥 VIDEO DETECTED (FORCING VIDEO DURATION)');
 
-    video.muted = false;
+    video.muted = !!options.allowMutedFallback;
     video.currentTime = 0;
 
     const startVideo = () => {
-        console.log('▶️ Playing video');
-        video.play().catch(() => {});
+        return playStoryVideo(video);
     };
 
     const handleDuration = () => {
 
         let videoDuration = video.duration;
 
-        console.log('🎥 Raw duration:', videoDuration);
 
         if (
             videoDuration &&
@@ -1388,7 +1753,6 @@ if (video) {
         ) {
             duration = videoDuration * 1000;
 
-            console.log(`✅ USING VIDEO DURATION: ${videoDuration}s (${duration}ms)`);
 
         } else {
 
@@ -1397,12 +1761,10 @@ if (video) {
             duration = parseInt(slide.dataset.timeout) || 3000;
         }
 
-        moveTo(current);
         if (!hasPoll) {
             setBars(current, duration);
         }
 
-        console.log(`📊 BAR Duration set to: ${duration}ms`);
 
         if (termId && postIds[current]) {
             markStorySeen(termId, postIds[current]);
@@ -1418,7 +1780,6 @@ if (video) {
         }
 
         wrapper._kaycoStoryState.activeDuration = hasPoll ? 0 : duration;
-        console.log(`⏱️ Timer started for ${duration}ms`);
         if (!hasPoll) {
             startStoryTimer(duration);
         }
@@ -1426,27 +1787,28 @@ if (video) {
 
     // 🔥 CRITICAL: wait for metadata (THIS is why you see 3000ms)
     if (video.readyState >= 1) {
-        console.log('⚡ Metadata already loaded');
-        startVideo();
-        handleDuration();
-        if (isPaused) {
-            pauseStoryPlayback();
-        }
-    } else {
-        console.log('⏳ Waiting for metadata...');
-        video.onloadedmetadata = () => {
-            console.log('✅ Metadata loaded');
-            startVideo();
+        moveTo(current);
+        startVideo().then(() => {
             handleDuration();
             if (isPaused) {
                 pauseStoryPlayback();
             }
+        }).catch(() => {});
+    } else {
+        moveTo(current);
+        const playPromise = startVideo();
+        video.onloadedmetadata = () => {
+            playPromise.then(() => {
+                handleDuration();
+                if (isPaused) {
+                    pauseStoryPlayback();
+                }
+            }).catch(() => {});
         };
     }
 
     return; // ⛔ STOP here so dataset logic never runs
 } else {
-                console.log('🖼️ IMAGE / DEFAULT SLIDE');
             }
 
             // =========================
@@ -1457,7 +1819,6 @@ if (video) {
                 setBars(current, duration);
             }
 
-            console.log(`📊 BAR Duration set to: ${duration}ms`);
 
             if (termId && postIds[current]) {
                 markStorySeen(termId, postIds[current]);
@@ -1473,7 +1834,6 @@ if (video) {
             }
 
             wrapper._kaycoStoryState.activeDuration = hasPoll ? 0 : duration;
-            console.log(`⏱️ Timer started for ${duration}ms`);
             if (!hasPoll) {
                 startStoryTimer(duration);
             }
@@ -1485,6 +1845,11 @@ if (video) {
 
         function prev() {
             if (current === 0) {
+                if (options.carousel && typeof options.onPreviousCategory === 'function') {
+                    options.onPreviousCategory();
+                    return;
+                }
+
                 if (currentCategoryIndex === 0) {
                     return;
                 }
