@@ -1112,7 +1112,45 @@ function updateThumbFromSlides(termId) {
                 return;
             }
 
-            activateCard(activeIndex + direction, initialSlideIndex, true, allowMutedFallback);
+            activeVisualIndex += direction;
+            activeIndex = normalizeIndex(activeVisualIndex - middleOffset);
+            activeStarted = true;
+            shell.classList.add('is-playing');
+
+            cards.forEach((card, cardIndex) => {
+                const dailyStories = card.querySelector('.daily-stories');
+                const isActive = cardIndex === activeVisualIndex;
+
+                card.classList.toggle('is-active', isActive);
+                card.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+                stopStoryWrapper(dailyStories, true);
+            });
+
+            centerActiveCard();
+            syncButtons();
+
+            const needsSnap = activeVisualIndex < middleOffset || activeVisualIndex >= middleOffset + originalCount;
+
+            if (!needsSnap) {
+                startActiveCard(initialSlideIndex, allowMutedFallback);
+                return;
+            }
+
+            setTimeout(() => {
+                activeVisualIndex = middleOffset + activeIndex;
+
+                cards.forEach((card, cardIndex) => {
+                    const dailyStories = card.querySelector('.daily-stories');
+                    const isActive = cardIndex === activeVisualIndex;
+
+                    card.classList.toggle('is-active', isActive);
+                    card.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+                    stopStoryWrapper(dailyStories, true);
+                });
+
+                centerActiveCard(false);
+                startActiveCard(initialSlideIndex, allowMutedFallback);
+            }, 420);
 
         }
 
@@ -1153,13 +1191,15 @@ function updateThumbFromSlides(termId) {
         }
 
         scope.addEventListener('wheel', function (event) {
-            if (wheelLocked || Math.abs(event.deltaX) + Math.abs(event.deltaY) < 24) {
+            const horizontalIntent = Math.abs(event.deltaX) > Math.abs(event.deltaY) && Math.abs(event.deltaX) >= 24;
+
+            if (wheelLocked || !horizontalIntent) {
                 return;
             }
 
             event.preventDefault();
             wheelLocked = true;
-            moveCarousel(event.deltaX + event.deltaY > 0 ? 1 : -1, null, true);
+            moveCarousel(event.deltaX > 0 ? 1 : -1, null, true);
             setTimeout(() => {
                 wheelLocked = false;
             }, 420);
