@@ -1,0 +1,36 @@
+name: Deploy to WP Engine
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-newkosher:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Deploy to WP Engine - newkosher
+        uses: wpengine/github-action-wpe-site-deploy@v3
+        with:
+          WPE_ENV: newkosher
+          WPE_SSHG_KEY_PRIVATE: ${{ secrets.WPE_SSHG_KEY_PRIVATE }}
+          REMOTE_PATH: wp-content/plugins/kosher-stories
+
+  deploy-kosherstg:
+    runs-on: ubuntu-latest
+    needs: deploy-newkosher
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Deploy to WP Engine - kosherstg
+        uses: wpengine/github-action-wpe-site-deploy@v3
+        with:
+          WPE_ENV: kosherstg
+          WPE_SSHG_KEY_PRIVATE: ${{ secrets.WPE_SSHG_KEY_PRIVATE }}
+          REMOTE_PATH: wp-content/plugins/kosher-stories

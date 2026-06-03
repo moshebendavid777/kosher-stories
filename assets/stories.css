@@ -192,14 +192,15 @@
 .kosher-reel-card {
   position: relative;
   flex: 0 0 min(304px, calc(100vw - 96px));
-  height: 100%;
-  overflow: hidden;
+  height: 600px;
+  overflow: hidden !important;
   border-radius: 12px;
   background: #111;
   opacity: .72;
   transform: scale(.96);
   transition: opacity .25s ease, transform .25s ease;
   cursor: pointer;
+  aspect-ratio: 16 / 9;
 }
 
 .kosher-reel-card.is-active {
@@ -970,10 +971,6 @@
 
   .kosher-reels__viewport {
     height: 100%;
-  }
-
-  .kosher-reel-card {
-    flex-basis: min(76vw, 340px);
   }
 
   .kosher-reels__nav {
