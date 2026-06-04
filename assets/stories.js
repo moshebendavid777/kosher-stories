@@ -1041,7 +1041,7 @@ function updateThumbFromSlides(termId) {
             const activeCard = cards[activeVisualIndex];
             const offset = activeCard.offsetLeft + (activeCard.offsetWidth / 2);
             track.style.transition = animate ? '' : 'none';
-            track.style.transform = `translateX(calc(50% - ${offset}px))`;
+            track.style.transform = `translate3d(calc(50% - ${offset}px), 0, 0)`;
 
             if (!animate) {
                 void track.offsetWidth;

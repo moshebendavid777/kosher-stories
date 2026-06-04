@@ -13,6 +13,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
+      - name: Verify WP Engine SSH key secret
+        run: test -n "${{ secrets.WPE_SSHG_KEY_PRIVATE }}"
+
       - name: Deploy to WP Engine - newkosher
         uses: wpengine/github-action-wpe-site-deploy@v3
         with:
@@ -27,6 +30,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
+
+      - name: Verify WP Engine SSH key secret
+        run: test -n "${{ secrets.WPE_SSHG_KEY_PRIVATE }}"
 
       - name: Deploy to WP Engine - kosherstg
         uses: wpengine/github-action-wpe-site-deploy@v3
