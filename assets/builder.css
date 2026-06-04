@@ -223,17 +223,16 @@
 
 .kosher-preview-shell {
     position: relative;
-    width: min(90%, 400px);
-    aspect-ratio: 9 / 16;
+    width: min(370px, calc(100vw - 96px));
+    height: 540px;
     margin: 0 auto;
     padding: 0;
-    border-radius: 34px;
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 18%),
-        #000;
-    border: 12px solid #17130f;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #111;
+    border: 0;
     box-shadow:
-        0 32px 48px rgba(16, 11, 8, 0.26),
+        0 24px 42px rgba(16, 11, 8, 0.22),
         inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
@@ -315,7 +314,7 @@
     height: 100%;
     position: relative;
     overflow: hidden;
-    border-radius: 22px;
+    border-radius: 12px;
     background: #000;
 }
 

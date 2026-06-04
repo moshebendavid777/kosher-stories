@@ -122,9 +122,14 @@ add_action('admin_enqueue_scripts', function ($hook) {
     wp_enqueue_script('jquery-ui-resizable');
     wp_enqueue_script('jquery-ui-sortable');
 
-    wp_enqueue_script('kosher-builder', plugin_dir_url(__FILE__) . 'assets/builder.js', ['jquery', 'jquery-ui-draggable', 'jquery-ui-resizable', 'jquery-ui-sortable'], null, true);
+    $builder_css_path = plugin_dir_path(__FILE__) . 'assets/builder.css';
+    $builder_js_path = plugin_dir_path(__FILE__) . 'assets/builder.js';
+    $builder_css_version = file_exists($builder_css_path) ? filemtime($builder_css_path) : '1.9.0';
+    $builder_js_version = file_exists($builder_js_path) ? filemtime($builder_js_path) : '1.9.0';
 
-    wp_enqueue_style('kosher-builder', plugin_dir_url(__FILE__) . 'assets/builder.css');
+    wp_enqueue_script('kosher-builder', plugin_dir_url(__FILE__) . 'assets/builder.js', ['jquery', 'jquery-ui-draggable', 'jquery-ui-resizable', 'jquery-ui-sortable'], $builder_js_version, true);
+
+    wp_enqueue_style('kosher-builder', plugin_dir_url(__FILE__) . 'assets/builder.css', [], $builder_css_version);
 
     wp_localize_script('kosher-builder', 'kosherBuilder', [
         'ajax_url' => admin_url('admin-ajax.php'),
@@ -307,7 +312,7 @@ function kosher_render_builder($post) {
 
             <div class="kosher-preview-status">
                 <span class="kosher-preview-chip"><i class="bi bi-eye"></i> Frontend Match</span>
-                <span class="kosher-preview-chip"><i class="bi bi-aspect-ratio"></i> 9:16 Story</span>
+                <span class="kosher-preview-chip"><i class="bi bi-aspect-ratio"></i> 370 × 540 Card</span>
                 <?php if ($featured_image) : ?>
                     <span class="kosher-preview-chip"><i class="bi bi-image"></i> Featured Cover</span>
                 <?php endif; ?>

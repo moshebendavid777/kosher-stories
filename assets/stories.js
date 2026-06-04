@@ -1185,9 +1185,23 @@ function updateThumbFromSlides(termId) {
                     return;
                 }
 
+                if (event._kaycoStoryHandled) {
+                    return;
+                }
+
                 if (index === activeVisualIndex) {
                     if (!activeStarted) {
                         startActiveCard();
+                        return;
+                    }
+
+                    const dailyStories = card.querySelector('.daily-stories');
+                    if (
+                        dailyStories &&
+                        dailyStories._kaycoStoryControls &&
+                        dailyStories._kaycoStoryControls.hasActiveVideo()
+                    ) {
+                        dailyStories._kaycoStoryControls.toggleVideoPlayback();
                     }
                     return;
                 }
@@ -1661,6 +1675,24 @@ function moveTo(index) {
             }
         }
 
+        function activeSlideHasVideo() {
+            return getActiveVideos().length > 0;
+        }
+
+        function toggleActiveVideoPlayback() {
+            if (!activeSlideHasVideo() || activeSlideHasPoll()) {
+                return false;
+            }
+
+            toggleStoryPlayback();
+            return true;
+        }
+
+        wrapper._kaycoStoryControls = {
+            hasActiveVideo: activeSlideHasVideo,
+            toggleVideoPlayback: toggleActiveVideoPlayback
+        };
+
         function setBars(i, duration) {
             bars.forEach((bar, index) => {
                 const span = bar.querySelector('span');
@@ -2015,6 +2047,7 @@ if (video) {
         wrapper.onclick = function(e) {
             if (preventClickAfterTouch) {
                 preventClickAfterTouch = false;
+                e._kaycoStoryHandled = true;
                 return;
             }
 
@@ -2046,6 +2079,7 @@ if (video) {
             }
 
             toggleStoryPlayback();
+            e._kaycoStoryHandled = true;
         };
 
         if (prevArrow) {
