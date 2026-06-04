@@ -1018,6 +1018,7 @@ function updateThumbFromSlides(termId) {
         let wheelLocked = false;
         let touchStartX = null;
         let touchStartY = null;
+        let trackTranslateX = 0;
 
         function syncButtons() {
             if (prev) {
@@ -1039,13 +1040,21 @@ function updateThumbFromSlides(termId) {
 
         function centerActiveCard(animate = true) {
             const activeCard = cards[activeVisualIndex];
-            const offset = activeCard.offsetLeft + (activeCard.offsetWidth / 2);
             const viewport = scope.querySelector('.kosher-reels__viewport') || scope;
-            const viewportCenter = viewport.getBoundingClientRect().width / 2;
-            const translateX = viewportCenter - offset;
+            if (!activeCard || !viewport) {
+                return;
+            }
+
+            const activeRect = activeCard.getBoundingClientRect();
+            const viewportRect = viewport.getBoundingClientRect();
+            const activeCenter = activeRect.left + (activeRect.width / 2);
+            const viewportCenter = viewportRect.left + (viewportRect.width / 2);
+            const delta = viewportCenter - activeCenter;
+
+            trackTranslateX += delta;
 
             track.style.transition = animate ? '' : 'none';
-            track.style.transform = `translate3d(${translateX}px, 0, 0)`;
+            track.style.transform = `translate3d(${trackTranslateX}px, 0, 0)`;
 
             if (!animate) {
                 void track.offsetWidth;
