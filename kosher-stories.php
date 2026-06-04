@@ -1361,7 +1361,7 @@ function kosher_render_story($data, $post_id = null) {
 
     $html = "
     <div class='kosher-story-canvas'>
-        <video class='story-bg-video' paused muted playsinline>
+        <video class='story-bg-video' paused muted playsinline webkit-playsinline>
             <source src='{$video}' type='video/mp4'>
         </video>
     ";
@@ -1655,7 +1655,7 @@ function kosher_build_stories_deck_payload($stories) {
 
             $slides .= "
                 <div class='slide video' data-post-id='{$story->ID}' data-timeout='{$slide_timeout}' data-has-poll='" . ($has_poll ? 'true' : 'false') . "'>
-                    <video src='{$video}' playsinline preload='metadata'></video>
+                    <video src='{$video}' playsinline webkit-playsinline preload='metadata'></video>
                     <div class='overlay'>{$content}</div>
                 </div>
             ";

@@ -1040,8 +1040,12 @@ function updateThumbFromSlides(termId) {
         function centerActiveCard(animate = true) {
             const activeCard = cards[activeVisualIndex];
             const offset = activeCard.offsetLeft + (activeCard.offsetWidth / 2);
+            const viewport = scope.querySelector('.kosher-reels__viewport') || scope;
+            const viewportCenter = viewport.getBoundingClientRect().width / 2;
+            const translateX = viewportCenter - offset;
+
             track.style.transition = animate ? '' : 'none';
-            track.style.transform = `translate3d(calc(50% - ${offset}px), 0, 0)`;
+            track.style.transform = `translate3d(${translateX}px, 0, 0)`;
 
             if (!animate) {
                 void track.offsetWidth;
@@ -1136,6 +1140,8 @@ function updateThumbFromSlides(termId) {
                 return;
             }
 
+            startActiveCard(initialSlideIndex, allowMutedFallback);
+
             setTimeout(() => {
                 activeVisualIndex = middleOffset + activeIndex;
 
@@ -1150,7 +1156,7 @@ function updateThumbFromSlides(termId) {
 
                 centerActiveCard(false);
                 startActiveCard(initialSlideIndex, allowMutedFallback);
-            }, 420);
+            }, 390);
 
         }
 
@@ -1453,7 +1459,13 @@ function moveTo(index) {
 
             if (options.allowMutedFallback) {
                 video.muted = true;
+                video.defaultMuted = true;
+                video.setAttribute('muted', '');
             }
+
+            video.playsInline = true;
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
 
 
             const playPromise = video.play();
