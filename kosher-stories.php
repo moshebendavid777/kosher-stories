@@ -81,10 +81,14 @@ add_action('wp_ajax_nopriv_kosher_get_category_stories', 'kosher_get_category_st
 |--------------------------------------------------------------------------
 */
 add_action('wp_enqueue_scripts', function () {
+    $css_path = plugin_dir_path(__FILE__) . 'assets/stories.css';
+    $js_path = plugin_dir_path(__FILE__) . 'assets/stories.js';
+    $css_version = file_exists($css_path) ? filemtime($css_path) : '1.9.0';
+    $js_version = file_exists($js_path) ? filemtime($js_path) : '1.9.0';
 
-    wp_enqueue_style('kosher-stories', plugin_dir_url(__FILE__) . 'assets/stories.css');
+    wp_enqueue_style('kosher-stories', plugin_dir_url(__FILE__) . 'assets/stories.css', [], $css_version);
 
-    wp_enqueue_script('kosher-stories', plugin_dir_url(__FILE__) . 'assets/stories.js', [], null, true);
+    wp_enqueue_script('kosher-stories', plugin_dir_url(__FILE__) . 'assets/stories.js', [], $js_version, true);
 
     wp_localize_script('kosher-stories', 'kosherStories', [
         'ajax_url' => admin_url('admin-ajax.php'),

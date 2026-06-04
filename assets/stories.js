@@ -1018,6 +1018,9 @@ function updateThumbFromSlides(termId) {
         let wheelLocked = false;
         let touchStartX = null;
         let touchStartY = null;
+        let touchLastX = null;
+        let touchDragging = false;
+        let touchBaseTranslateX = 0;
         let trackTranslateX = 0;
 
         function syncButtons() {
@@ -1038,20 +1041,22 @@ function updateThumbFromSlides(termId) {
             return (index % originalCount + originalCount) % originalCount;
         }
 
-        function centerActiveCard(animate = true) {
+        function getCenteredTrackTranslate() {
             const activeCard = cards[activeVisualIndex];
             const viewport = scope.querySelector('.kosher-reels__viewport') || scope;
             if (!activeCard || !viewport) {
-                return;
+                return trackTranslateX;
             }
 
-            const activeRect = activeCard.getBoundingClientRect();
-            const viewportRect = viewport.getBoundingClientRect();
-            const activeCenter = activeRect.left + (activeRect.width / 2);
-            const viewportCenter = viewportRect.left + (viewportRect.width / 2);
-            const delta = viewportCenter - activeCenter;
+            const viewportWidth = viewport.clientWidth || viewport.getBoundingClientRect().width;
+            const cardWidth = activeCard.offsetWidth || activeCard.getBoundingClientRect().width;
+            const cardLeft = activeCard.offsetLeft;
 
-            trackTranslateX += delta;
+            return (viewportWidth / 2) - (cardLeft + (cardWidth / 2));
+        }
+
+        function centerActiveCard(animate = true) {
+            trackTranslateX = getCenteredTrackTranslate();
 
             track.style.transition = animate ? '' : 'none';
             track.style.transform = `translate3d(${trackTranslateX}px, 0, 0)`;
@@ -1224,12 +1229,42 @@ function updateThumbFromSlides(termId) {
             if (event.touches.length !== 1) {
                 touchStartX = null;
                 touchStartY = null;
+                touchLastX = null;
+                touchDragging = false;
                 return;
             }
 
             touchStartX = event.touches[0].clientX;
             touchStartY = event.touches[0].clientY;
+            touchLastX = touchStartX;
+            touchBaseTranslateX = trackTranslateX;
+            touchDragging = false;
         }, { passive: true });
+
+        scope.addEventListener('touchmove', function (event) {
+            if (touchStartX === null || touchStartY === null || event.touches.length !== 1) {
+                return;
+            }
+
+            const touch = event.touches[0];
+            const deltaX = touch.clientX - touchStartX;
+            const deltaY = touch.clientY - touchStartY;
+
+            if (!touchDragging && Math.abs(deltaX) <= 8) {
+                return;
+            }
+
+            if (!touchDragging && Math.abs(deltaX) <= Math.abs(deltaY)) {
+                return;
+            }
+
+            event.preventDefault();
+            touchDragging = true;
+            touchLastX = touch.clientX;
+            track.style.transition = 'none';
+            trackTranslateX = touchBaseTranslateX + deltaX;
+            track.style.transform = `translate3d(${trackTranslateX}px, 0, 0)`;
+        }, { passive: false });
 
         scope.addEventListener('touchend', function (event) {
             if (touchStartX === null || touchStartY === null) {
@@ -1237,16 +1272,20 @@ function updateThumbFromSlides(termId) {
             }
 
             const touch = event.changedTouches[0];
-            const deltaX = touch.clientX - touchStartX;
+            const deltaX = (touchLastX !== null ? touchLastX : touch.clientX) - touchStartX;
             const deltaY = touch.clientY - touchStartY;
 
             touchStartX = null;
             touchStartY = null;
+            touchLastX = null;
 
-            if (Math.abs(deltaX) < 36 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+            if (!touchDragging || Math.abs(deltaX) < 36 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+                touchDragging = false;
+                centerActiveCard(true);
                 return;
             }
 
+            touchDragging = false;
             moveCarousel(deltaX < 0 ? 1 : -1, null, true);
         }, { passive: true });
 
@@ -1257,6 +1296,10 @@ function updateThumbFromSlides(termId) {
         scope._reelsResizeHandler = centerActiveCard;
         window.addEventListener('resize', scope._reelsResizeHandler, { passive: true });
         activateCard(activeIndex, null, options.autoplay === true);
+
+        requestAnimationFrame(() => {
+            centerActiveCard(false);
+        });
     }
 
     // =========================
