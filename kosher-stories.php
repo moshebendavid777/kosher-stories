@@ -93,7 +93,7 @@ add_action('wp_enqueue_scripts', function () {
     wp_localize_script('kosher-stories', 'kosherStories', [
         'ajax_url' => admin_url('admin-ajax.php'),
         'default_thumb_url' => kosher_get_default_thumb_url(),
-        'poll_nonce' => wp_create_nonce('kayco_poll_vote'),
+        'poll_nonce' => wp_create_nonce('kosher_poll_vote'),
     ]);
 });
 
@@ -829,6 +829,12 @@ function kayco_get_story_poll_payload($poll_id) {
         return null;
     }
 
+    if (function_exists('kosher_get_poll_public_payload')) {
+        $payload = kosher_get_poll_public_payload($poll_id);
+        return is_array($payload) ? $payload : null;
+    }
+
+    // Backward compatibility for sites still running the older polls helper.
     if (function_exists('kayco_get_poll_public_payload')) {
         $payload = kayco_get_poll_public_payload($poll_id);
         return is_array($payload) ? $payload : null;
@@ -854,6 +860,11 @@ function kayco_get_story_poll_markup($poll_id) {
         return '';
     }
 
+    if (function_exists('kosher_get_poll_markup')) {
+        return (string) kosher_get_poll_markup($poll_id);
+    }
+
+    // Backward compatibility for sites still running the older polls helper.
     if (function_exists('kayco_get_poll_markup')) {
         return (string) kayco_get_poll_markup($poll_id);
     }
@@ -1635,6 +1646,7 @@ function kosher_build_stories_deck_payload($stories) {
     $slides = '';
     $bars   = '';
     $index  = 0;
+    $deck_has_sound = false;
 
     // 🔥 NEW: collect post IDs for seen logic
     $post_ids = [];
@@ -1649,6 +1661,10 @@ function kosher_build_stories_deck_payload($stories) {
         $settings = $decoded['settings'] ?? [];
 
         $video    = $settings['video'] ?? '';
+        $audio    = $settings['audio'] ?? '';
+        $has_sound = (!empty($video) && empty($settings['disableVideo']))
+            || (!empty($audio) && empty($settings['disableAudio']));
+        $deck_has_sound = $deck_has_sound || $has_sound;
         $duration = $settings['duration'] ?? 3000;
         $has_poll = kayco_story_has_poll_element($data);
         $slide_timeout = $has_poll ? 0 : $duration;
@@ -1663,7 +1679,7 @@ function kosher_build_stories_deck_payload($stories) {
             $video = esc_url($video);
 
             $slides .= "
-                <div class='slide video' data-post-id='{$story->ID}' data-timeout='{$slide_timeout}' data-has-poll='" . ($has_poll ? 'true' : 'false') . "'>
+                <div class='slide video' data-post-id='{$story->ID}' data-timeout='{$slide_timeout}' data-has-poll='" . ($has_poll ? 'true' : 'false') . "' data-has-sound='" . ($has_sound ? 'true' : 'false') . "'>
                     <video src='{$video}' playsinline webkit-playsinline preload='metadata'></video>
                     <div class='overlay'>{$content}</div>
                 </div>
@@ -1675,7 +1691,7 @@ function kosher_build_stories_deck_payload($stories) {
             // 🖼️ IMAGE SLIDE
             // =========================
             $slides .= "
-                <div class='slide' data-post-id='{$story->ID}' data-timeout='{$slide_timeout}' data-has-poll='" . ($has_poll ? 'true' : 'false') . "'>
+                <div class='slide' data-post-id='{$story->ID}' data-timeout='{$slide_timeout}' data-has-poll='" . ($has_poll ? 'true' : 'false') . "' data-has-sound='" . ($has_sound ? 'true' : 'false') . "'>
                     <div class='overlay'>{$content}</div>
                 </div>
             ";
@@ -1696,6 +1712,13 @@ function kosher_build_stories_deck_payload($stories) {
     // =========================
     // FINAL STRUCTURE
     // =========================
+    $sound_button = $deck_has_sound ? "
+            <button type='button' class='kosher-story-sound' aria-label='Mute story' aria-pressed='false' hidden>
+                <svg class='kosher-story-sound__on' viewBox='0 0 24 24' aria-hidden='true'><path d='M3 9v6h4l5 4V5L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12zm-2.5-8.77v2.06a7 7 0 0 1 0 13.42v2.06a9 9 0 0 0 0-17.54z'/></svg>
+                <svg class='kosher-story-sound__off' viewBox='0 0 24 24' aria-hidden='true'><path d='M3 9v6h4l5 4V5L7 9H3zm14.59 3 2.7-2.7-1.42-1.42-2.7 2.71-2.7-2.71-1.42 1.42 2.71 2.7-2.71 2.7 1.42 1.42 2.7-2.71 2.7 2.71 1.42-1.42-2.7-2.7z'/></svg>
+            </button>
+    " : '';
+
     $html = "
         <div class='daily-stories'>
 
@@ -1708,6 +1731,8 @@ function kosher_build_stories_deck_payload($stories) {
             <div class='progress-bars'>
                 {$bars}
             </div>
+
+            {$sound_button}
 
             <span class='prev-slide'></span>
             <span class='next-slide'></span>

@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const categories = Array.from(document.querySelectorAll('.kosher-story-thumb'));
 
     let currentTermId = null;
+    let storyMuted = false;
     const analyticsSessionId = getAnalyticsSessionId();
     let analyticsQueue = [];
     let analyticsFlushTimer = null;
@@ -204,10 +205,13 @@ function playActiveVideo(activeSlide) {
     }
 
     function getPollConfig() {
+        const currentConfig = window.KosherPollsPluginConfig || window.kosherPolls || window.kaycoPolls || {};
+
         return {
-            ajaxUrl: (window.kaycoPolls && window.kaycoPolls.ajaxUrl) || kosherStories.ajax_url,
-            nonce: (window.kaycoPolls && window.kaycoPolls.nonce) || kosherStories.poll_nonce || '',
-            messages: (window.kaycoPolls && window.kaycoPolls.messages) || {}
+            ajaxUrl: currentConfig.ajaxUrl || kosherStories.ajax_url,
+            nonce: currentConfig.nonce || kosherStories.poll_nonce || '',
+            messages: currentConfig.messages || {},
+            action: window.KosherPollsPluginConfig ? 'kosher_submit_poll_vote' : 'kayco_submit_poll_vote'
         };
     }
 
@@ -491,7 +495,7 @@ function playActiveVideo(activeSlide) {
     function submitStoryPollVote(card, optionValue) {
         const config = getPollConfig();
         const body = new URLSearchParams({
-            action: 'kayco_submit_poll_vote',
+            action: config.action,
             nonce: config.nonce,
             poll_id: card.dataset.pollId || '',
             poll_option: optionValue
@@ -926,6 +930,10 @@ function updateThumbFromSlides(termId) {
             clearTimeout(wrapper._timer);
             wrapper._timer = null;
         }
+
+        // Invalidate delayed play retries created by the story engine. Without
+        // this, a retry can restart a video after its carousel card lost focus.
+        wrapper._kaycoPlaybackGeneration = (wrapper._kaycoPlaybackGeneration || 0) + 1;
 
         wrapper.querySelectorAll('video').forEach(video => {
             video.onloadedmetadata = null;
@@ -1411,6 +1419,7 @@ setTimeout(() => {
         const progressBars = wrapper.querySelector('.progress-bars');
         const prevArrow = wrapper.querySelector('.prev-slide');
         const nextArrow = wrapper.querySelector('.next-slide');
+        const muteButton = wrapper.querySelector('.kosher-story-sound');
 
         if (!slides.length) return;
 
@@ -1424,6 +1433,8 @@ setTimeout(() => {
         let touchStartX = null;
         let touchStartY = null;
         let touchStartTarget = null;
+        const playbackGeneration = (wrapper._kaycoPlaybackGeneration || 0) + 1;
+        wrapper._kaycoPlaybackGeneration = playbackGeneration;
         wrapper._kaycoStoryState = {
             termId,
             postIds,
@@ -1487,6 +1498,28 @@ function moveTo(index) {
             return slide ? Array.from(slide.querySelectorAll('video')) : [];
         }
 
+        function syncMuteButton() {
+            if (!muteButton) {
+                return;
+            }
+
+            const activeSlide = getActiveSlide();
+            const hasSound = !!activeSlide && activeSlide.dataset.hasSound === 'true';
+
+            muteButton.hidden = !hasSound;
+            muteButton.setAttribute('aria-pressed', storyMuted ? 'true' : 'false');
+            muteButton.setAttribute('aria-label', storyMuted ? 'Unmute story' : 'Mute story');
+            muteButton.title = storyMuted ? 'Unmute story' : 'Mute story';
+        }
+
+        function applyMuteState() {
+            getActiveVideos().forEach(video => {
+                video.muted = storyMuted;
+                video.defaultMuted = storyMuted;
+            });
+            syncMuteButton();
+        }
+
         function keepCarouselVideoPlaying(video) {
             if (!options.carousel || !video) {
                 return;
@@ -1497,6 +1530,8 @@ function moveTo(index) {
             [250, 800, 1500].forEach((delay) => {
                 setTimeout(() => {
                     const stillActive = wrapper._kaycoStoryState &&
+                        wrapper._kaycoPlaybackGeneration === playbackGeneration &&
+                        (!options.carousel || !!wrapper.closest('.kosher-reel-card.is-active')) &&
                         wrapper._kaycoStoryState.current === current &&
                         postIds[current] === expectedPostId;
 
@@ -1524,9 +1559,9 @@ function moveTo(index) {
             }
 
             if (options.allowMutedFallback) {
-                video.muted = true;
-                video.defaultMuted = true;
-                video.setAttribute('muted', '');
+                video.muted = storyMuted;
+                video.defaultMuted = storyMuted;
+                video.toggleAttribute('muted', storyMuted);
             }
 
             video.playsInline = true;
@@ -1546,8 +1581,9 @@ function moveTo(index) {
                     return true;
                 }).catch((error) => {
 
-                    if (options.allowMutedFallback) {
-                        video.muted = true;
+                    if (options.allowMutedFallback && !storyMuted) {
+                        storyMuted = true;
+                        applyMuteState();
                         video.play().then(() => {
 
                         }).catch((retryError) => {
@@ -1693,6 +1729,16 @@ function moveTo(index) {
             toggleVideoPlayback: toggleActiveVideoPlayback
         };
 
+        if (muteButton) {
+            syncMuteButton();
+            muteButton.onclick = function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                storyMuted = !storyMuted;
+                applyMuteState();
+            };
+        }
+
         function setBars(i, duration) {
             bars.forEach((bar, index) => {
                 const span = bar.querySelector('span');
@@ -1783,6 +1829,7 @@ function moveTo(index) {
 
             initStoryPollCards(slide);
             setPollSlideMode(hasPoll);
+            syncMuteButton();
 
 
             // =========================
@@ -1790,7 +1837,7 @@ function moveTo(index) {
             // =========================
 if (bgVideo) {
 
-    bgVideo.muted = hasPoll || options.allowMutedFallback ? true : bgVideo.hasAttribute('muted');
+    bgVideo.muted = storyMuted;
     bgVideo.currentTime = 0;
 
     const startVideo = () => {
@@ -1821,7 +1868,6 @@ if (bgVideo) {
 
         if (termId && postIds[current]) {
             markStorySeen(termId, postIds[current]);
-            trackView(postIds[current], termId, hasPoll ? 0 : ms);
             queueStoryEvent({
                 eventType: 'view',
                 postId: postIds[current],
@@ -1869,7 +1915,7 @@ if (bgVideo) {
 if (video) {
 
 
-    video.muted = !!options.allowMutedFallback;
+    video.muted = storyMuted;
     video.currentTime = 0;
 
     const startVideo = () => {
@@ -1904,7 +1950,6 @@ if (video) {
 
         if (termId && postIds[current]) {
             markStorySeen(termId, postIds[current]);
-            trackView(postIds[current], termId, hasPoll ? 0 : duration);
             queueStoryEvent({
                 eventType: 'view',
                 postId: postIds[current],
@@ -1958,7 +2003,6 @@ if (video) {
 
             if (termId && postIds[current]) {
                 markStorySeen(termId, postIds[current]);
-                trackView(postIds[current], termId, hasPoll ? 0 : duration);
                 queueStoryEvent({
                     eventType: 'view',
                     postId: postIds[current],
@@ -2054,7 +2098,8 @@ if (video) {
             if (
                 e.target.closest('.bar') ||
                 e.target.closest('.prev-slide') ||
-                e.target.closest('.next-slide')
+                e.target.closest('.next-slide') ||
+                e.target.closest('.kosher-story-sound')
             ) {
                 return;
             }
@@ -2121,7 +2166,8 @@ if (video) {
                 touchStartTarget.closest('.story-poll') ||
                 touchStartTarget.closest('.bar') ||
                 touchStartTarget.closest('.prev-slide') ||
-                touchStartTarget.closest('.next-slide')
+                touchStartTarget.closest('.next-slide') ||
+                touchStartTarget.closest('.kosher-story-sound')
             ) {
                 touchStartX = null;
                 touchStartY = null;

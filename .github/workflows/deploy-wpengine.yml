@@ -23,7 +23,7 @@ jobs:
           WPE_SSHG_KEY_PRIVATE: ${{ secrets.WPE_SSHG_KEY_PRIVATE }}
           REMOTE_PATH: wp-content/plugins/kosher-stories
 
-  deploy-kosherstg:
+  deploy-koshercom:
     runs-on: ubuntu-latest
     needs: deploy-newkosher
 
@@ -34,9 +34,9 @@ jobs:
       - name: Verify WP Engine SSH key secret
         run: test -n "${{ secrets.WPE_SSHG_KEY_PRIVATE }}"
 
-      - name: Deploy to WP Engine - kosherstg
+      - name: Deploy to WP Engine - koshercom
         uses: wpengine/github-action-wpe-site-deploy@v3
         with:
-          WPE_ENV: kosherstg
+          WPE_ENV: koshercom
           WPE_SSHG_KEY_PRIVATE: ${{ secrets.WPE_SSHG_KEY_PRIVATE }}
           REMOTE_PATH: wp-content/plugins/kosher-stories
